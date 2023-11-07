@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier as KNN
 
 
-train_n, test_n, dim, beta = 10, 400, 2, 1.
+train_n, test_n, dim, beta = 10, 400, 2, 100.
 
 def kernel(x1, x2, beta=1.):
     return np.exp(-beta*np.linalg.norm(x1-x2, ord=2, axis=-1)**dim)
