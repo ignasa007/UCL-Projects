@@ -51,7 +51,7 @@ if __name__ == '__main__':
     # Define the covariance matrix, Q_1, of the initial hidden state, y_1
     Q_init = np.identity(4)
     # Define the total number of runs and the total number of EM iterations in each run
-    n_runs, n_iterations = 10, 100
+    n_runs, n_iterations = 20, 100
     # Define an (n_runs, n_iterations+1) sized array to collect the results of each EM run 
     all_log_likelihoods = np.zeros((n_runs, n_iterations+1))
 
@@ -83,10 +83,10 @@ if __name__ == '__main__':
 
     # Plot the log-likelihoods
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-    for i, log_likelihoods in enumerate(first_50_log_ls, 1):
+    for i, log_likelihoods in enumerate(first_50_log_ls[:10], 1):
         axs.plot(range(1, 51), log_likelihoods/1000, color=f'C{i}')
     axs.set_xticks(range(10, 51, 10)) 
-    axs.set_ylim(first_50_log_ls.min()/1000-0.1, first_50_log_ls.max()/1000+0.1)
+    axs.set_ylim(first_50_log_ls[:10].min()/1000-0.1, first_50_log_ls[:10].max()/1000+0.1)
     axs.set_xlabel('EM Iteration', size=12)
     axs.set_ylabel(r'Log-likelihood $\times 10^{-3}$', size=12)
     axs.grid()
@@ -96,8 +96,8 @@ if __name__ == '__main__':
 
     # Plot the final log-likelihood in each run
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-    axs.bar(range(1, n_runs+1), iter_50_log_ls/1000, color='blue')
-    axs.set_ylim(iter_50_log_ls.min()/1000-0.01, iter_50_log_ls.max()/1000+0.01)
+    axs.bar(range(1, 11), iter_50_log_ls[:10]/1000, color='blue')
+    axs.set_ylim(iter_50_log_ls[:10].min()/1000-0.01, iter_50_log_ls[:10].max()/1000+0.01)
     axs.set_xlabel('Run', size=12)
     axs.set_ylabel(r'Log-likelihood $\times 10^{-3}$', size=12)
     axs.grid()
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     plt.close(fig)
 
     # Plot the standard deviation of the log-likelihoods
-    print(np.std(iter_50_log_ls))
+    print(np.std(iter_50_log_ls[:10]))
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
     axs.plot(np.std(all_log_likelihoods, axis=0), color='blue')
     axs.set_xticks(np.arange(0, n_iterations+1, 10))
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     plt.close(fig)
 
     # Plot the range of the log-likelihoods
-    print(np.ptp(iter_50_log_ls, axis=0))
+    print(np.ptp(iter_50_log_ls[:10], axis=0))
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
     axs.plot(np.ptp(all_log_likelihoods, axis=0), color='blue')
     axs.set_xticks(np.arange(0, n_iterations+1, 10))
