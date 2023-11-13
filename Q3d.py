@@ -1,25 +1,9 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Load the dataset
 dataset = np.loadtxt('binarydigits.txt')
-
-def smoothing(p, eps=1e-8):
-    '''
-    Smooth a probability vector to ensure that all components are >0.
-    :param p: probability vector which sums to 1.
-    :param eps: how much mass to assign to components with 0 mass.
-    :returns:
-    p: smoothed probability vector.
-    '''
-    nonzero = np.where(p > 2*eps)
-    if nonzero[0].size == 0:
-        return p
-    # take mass from components with non-zero probability and 
-    # distribute to components with 0 mass
-    p[nonzero] -= eps * p.size/nonzero[0].size
-    p += eps
-    return p
 
 class EMForMultivariateBernoulli:
 
@@ -60,7 +44,6 @@ class EMForMultivariateBernoulli:
         R: matrix of shape (N, K) with responsibilities of x^{(n)} towards the mixture components.  
         '''
         N, D, K = *X.shape, pi.size
-        P = 1 - smoothing(1-P, eps=1e-8)
         R = np.zeros(shape=(N, K))
         for n in range(N):
             for k in range(K):
@@ -83,7 +66,7 @@ class EMForMultivariateBernoulli:
             the number of components in the mixture.
         pi: mixture components' weights.
         '''
-        P = np.divide(R.T @ X, smoothing(p=R.sum(axis=0), eps=1e-8).reshape(-1, 1))
+        P = np.divide(R.T @ X, np.clip(R.sum(axis=0), 1e-8, None).reshape(-1, 1))
         pi = np.mean(R, axis=0)
         return P, pi
 
@@ -103,12 +86,12 @@ class EMForMultivariateBernoulli:
         R: matrix of shape (N, K) with responsibilities of x^{(n)} towards the mixture components.
         log_likelihoods: log-likelihood for each iteration of the algorithm
         '''
-        P = np.random.uniform(size=(K, X.shape[1]))
+        P = np.random.uniform(size=(K, X.shape[1])); P = np.clip(P, 1e-8, 1-1e-8)
         pi = np.ones(K) / K
         log_likelihoods = [self.log_likelihood(X=X, P=P, pi=pi)]
         for _ in range(n_iterations):
             R = self.expectation(X=X, P=P, pi=pi)
-            P, pi = self.maximisation(X=X, R=R)
+            P, pi = self.maximisation(X=X, R=R); P = np.clip(P, 1e-8, 1-1e-8)
             log_l = self.log_likelihood(X=X, P=P, pi=pi)
             log_likelihoods.append(log_l)
             if log_likelihoods[-1] - log_likelihoods[-2] <= eps:
@@ -123,40 +106,45 @@ def plot_params(params, k, pi_k, fn):
     :param pi_k: component weight, i.e., probability of sampling from component k.
     :param fn: filename to save the plot to.
     '''
-    fig, axs = plt.subplots(figsize=(4, 4))
+    fig, axs = plt.subplots(figsize=(4, 5))
     axs.imshow(params, cmap='gray')
     for d in range(params.size):
         i, j = d//8, d%8
         axs.text(j, i, f'{params[i, j]:.2f}', ha='center', va='center', color='orangered')
-    axs.set_xticks(np.arange(8)); axs.set_yticks(np.arange(8))
     axs.set_title(fr'$\pi_{({k+1})} = {pi_k:.6f}$')
     fig.tight_layout()
+    plt.axis('off')
+    if not os.path.exists(os.path.dirname(fn)):
+        os.makedirs(os.path.dirname(fn), exist_ok=True)
     plt.savefig(fn)
     plt.close(fig)
 
-# Loop over the values of K, running EM for each of them
-Ks = (2, 3, 4, 7, 10)
-# Store the log-likelihoods for each run to plot later
-log_likelihoods_lst = list()
-for K in Ks:
-    em = EMForMultivariateBernoulli()
-    P, pi, R, log_likelihoods = em(K=K, X=dataset, n_iterations=10, eps=1e-6)
-    log_likelihoods_lst.append(log_likelihoods)
-    for k in range(K):
-        plot_params(params=P[k].reshape(8, 8), k=k, pi_k=pi[k], 
-            fn=f'assets/em/K={K}/k={k+1}.png')
 
-# Plot the log-likelihoods from each run to compare across different values of k
-fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-for i, (K, log_ls) in enumerate(zip(Ks, log_likelihoods_lst)):
-    axs.plot(log_ls, marker='o', color=f'C{i}', label=f'K = {K}')
-axs.set_xlabel('Iteration Number')
-axs.set_ylabel('Log-likelihood')
-max_iterations = max((len(log_ls) for log_ls in log_likelihoods_lst))
-xticks = range(0, max_iterations+2-(1+max_iterations)%2, 2)
-axs.set_xticks(ticks=xticks, labels=xticks)
-axs.grid()
-axs.legend()
-fig.tight_layout()
-plt.savefig(f'assets/em/log_ls.png')
-plt.close(fig)
+if __name__ == '__main__':
+
+    # Loop over the values of K, running EM for each of them
+    Ks = (2, 3, 4, 7, 10)
+    # Store the log-likelihoods for each run to plot later
+    all_log_likelihoods = list()
+    for K in Ks:
+        em = EMForMultivariateBernoulli()
+        P, pi, R, log_likelihoods = em(K=K, X=dataset, n_iterations=15, eps=1e-1)
+        all_log_likelihoods.append(log_likelihoods)
+        for k in range(K):
+            plot_params(params=P[k].reshape(8, 8), k=k, pi_k=pi[k], 
+                fn=f'assets/em/K={K}/k={k+1}.png')
+
+    # Plot the log-likelihoods from each run to compare across different values of k
+    fig, axs = plt.subplots(1, 1, figsize=(4.5, 4))
+    for i, (K, log_ls) in enumerate(zip(Ks, all_log_likelihoods)):
+        axs.plot(log_ls, marker='o', color=f'C{i}', label=f'K = {K}')
+    axs.set_xlabel('Iteration Number')
+    axs.set_ylabel('Log-likelihood')
+    max_iterations = max((len(log_ls) for log_ls in all_log_likelihoods))
+    xticks = range(0, 1+max_iterations//2*2, 2)
+    axs.set_xticks(ticks=xticks, labels=xticks)
+    axs.grid()
+    axs.legend()
+    fig.tight_layout()
+    plt.savefig(f'assets/em/log_ls.png')
+    plt.close(fig)

@@ -46,7 +46,7 @@ for mode, Y in zip(('filter', 'smooth'), (Y_filt, Y_smooth)):
 for mode, V in zip(('filter', 'smooth'), (V_filt, V_smooth)):
     logdet = [2*np.sum(np.log(np.diag(v))) for v in np.linalg.cholesky(V)]
     fig, axs = plt.subplots(1, 1)
-    axs.plot(logdet, color='green')
+    axs.plot(logdet, color='blue')
     axs.set_xlabel(r'$t$')
     axs.grid()
     fig.tight_layout()

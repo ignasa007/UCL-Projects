@@ -48,8 +48,7 @@ def run_ssm_kalman(X, y_init, Q_init, A, Q, C, R, mode='smooth'):
         x_pred_err = X[:, t] - C.dot(y_pred)
         V_x_pred = C.dot(V_pred.dot(C.T)) + R
         V_x_pred_inv = np.linalg.inv(V_x_pred)
-        likelihood[t] = -0.5 * (np.linalg.slogdet(2 * np.pi * (V_x_pred))[1] +
-                                x_pred_err.T.dot(V_x_pred_inv).dot(x_pred_err))
+        likelihood[t] = -0.5 * (np.linalg.slogdet(2*np.pi*(V_x_pred))[1] + x_pred_err.T.dot(V_x_pred_inv).dot(x_pred_err))
 
         K[t] = V_pred.dot(C.T).dot(V_x_pred_inv)
 
