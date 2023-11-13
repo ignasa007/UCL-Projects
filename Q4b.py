@@ -76,35 +76,55 @@ if __name__ == '__main__':
             # Run the M-step of the algorithm
             A, Q, C, R = maximisation(X, Y, V, Vj)
 
+    # Remove the log-likelihood corresponding to the initial random parameters 
+    all_log_likelihoods = all_log_likelihoods[:, 1:]
+    first_50_log_ls = all_log_likelihoods[:, :50]
+    iter_50_log_ls = all_log_likelihoods[:, 50]
+
     # Plot the log-likelihoods
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
-    for log_likelihoods in all_log_likelihoods[:51]:
-        axs.plot(log_likelihoods/1000)
-    axs.set_xticks(np.arange(0, n_iterations+1, 10))
-    mn, mx = all_log_likelihoods.min(), all_log_likelihoods.max()
-    axs.set_yticks(np.arange(np.floor(mn/1000), np.ceil(mx/1000)+1, 3))
+    for i, log_likelihoods in enumerate(first_50_log_ls, 1):
+        axs.plot(range(1, 51), log_likelihoods/1000, color=f'C{i}')
+    axs.set_xticks(range(10, 51, 10)) 
+    axs.set_ylim(first_50_log_ls.min()/1000-0.1, first_50_log_ls.max()/1000+0.1)
     axs.set_xlabel('EM Iteration', size=12)
-    axs.set_ylabel(r'Log-likelihood $\times 10^{-4}$', size=12)
+    axs.set_ylabel(r'Log-likelihood $\times 10^{-3}$', size=12)
     axs.grid()
+    fig.tight_layout()
     plt.savefig(f'assets/kalman/em-50.png')
     plt.close(fig)
 
+    # Plot the final log-likelihood in each run
+    fig, axs = plt.subplots(1, 1, figsize=(6, 4))
+    axs.bar(range(1, n_runs+1), iter_50_log_ls/1000, color='blue')
+    axs.set_ylim(iter_50_log_ls.min()/1000-0.01, iter_50_log_ls.max()/1000+0.01)
+    axs.set_xlabel('Run', size=12)
+    axs.set_ylabel(r'Log-likelihood $\times 10^{-3}$', size=12)
+    axs.grid()
+    fig.tight_layout()
+    plt.savefig(f'assets/kalman/em-bar.png')
+    plt.close(fig)
+
     # Plot the standard deviation of the log-likelihoods
-    print(np.std(all_log_likelihoods[:, 50]))
+    print(np.std(iter_50_log_ls))
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
     axs.plot(np.std(all_log_likelihoods, axis=0), color='blue')
     axs.set_xticks(np.arange(0, n_iterations+1, 10))
     axs.set_xlabel('EM Iteration', size=12)
     axs.set_ylabel('StdDev(log-likelihood)', size=12)
     axs.grid()
+    fig.tight_layout()
     plt.savefig(f'assets/kalman/em-std.png')
+    plt.close(fig)
 
     # Plot the range of the log-likelihoods
-    print(np.ptp(all_log_likelihoods[:, 50], axis=0))
+    print(np.ptp(iter_50_log_ls, axis=0))
     fig, axs = plt.subplots(1, 1, figsize=(6, 4))
     axs.plot(np.ptp(all_log_likelihoods, axis=0), color='blue')
     axs.set_xticks(np.arange(0, n_iterations+1, 10))
     axs.set_xlabel('EM Iteration', size=12)
     axs.set_ylabel('Range(log-likelihood)', size=12)
     axs.grid()
+    fig.tight_layout()
     plt.savefig(f'assets/kalman/em-range.png')
+    plt.close(fig)
