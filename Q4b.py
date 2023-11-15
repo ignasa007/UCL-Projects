@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
 from ssm_kalman import run_ssm_kalman
 
 def maximisation(X, Y, V, Vj):
@@ -51,7 +50,7 @@ if __name__ == '__main__':
     # Define the covariance matrix, Q_1, of the initial hidden state, y_1
     Q_init = np.identity(4)
     # Define the total number of runs and the total number of EM iterations in each run
-    n_runs, n_iterations = 20, 100
+    n_runs, n_iterations = 10, 50
     # Define an (n_runs, n_iterations+1) sized array to collect the results of each EM run 
     all_log_likelihoods = np.zeros((n_runs, n_iterations+1))
 

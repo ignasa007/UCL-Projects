@@ -114,7 +114,6 @@ class GibbsSampler:
         return self.topic_doc_words_distr, self.theta, self.phi
 
     def update_params(self):
-        ########################################################################################
         """
         Samples theta and phi, then computes the distribution of
         z_id and samples counts A_dk, B_kw from it
@@ -137,34 +136,30 @@ class GibbsSampler:
         self.topic_doc_words_distr /= self.theta.dot(self.phi)[None, :, :]
 
     def sample_counts(self):
-        ########################################################################################
         """
         For each document and each word, samples from z_id|x_id, theta, phi
         and adds the results to the counts A_dk and B_kw
         """
         self.A_dk.fill(0)
         self.B_kw.fill(0)
-
         if self.do_test:
             self.A_dk_test.fill(0)
             self.B_kw_test.fill(0)
-
         # todo: sample a topic for each (doc, word) and update A_dk, B_kw correspondingly
         for doc in range(self.n_docs):
-            
             for word in range(self.n_words):
-                
+                # Sample topic assignments using the distribution over topics for w_id.
                 sampled_topics = self.rand_gen.choice(
                     self.topics_space, 
                     size=self.docs_words[doc, word] + (self.docs_words_test[doc, word] if self.do_test else 0),
                     p=self.topic_doc_words_distr[:, doc, word]
                 )
-
+                # Update topic assignments for the training set.
                 sampled_topics_train = sampled_topics[:self.docs_words[doc, word]]
                 sample, counts = np.unique(sampled_topics_train, return_counts=True)
                 self.A_dk[doc, sample] += counts
                 self.B_kw[sample, word] += counts
-
+                # Update topic assignments for the test set. 
                 sampled_topics_test = sampled_topics[-self.docs_words_test[doc, word]:]
                 sample, counts = np.unique(sampled_topics_test, return_counts=True)
                 self.A_dk_test[doc, sample] += counts
@@ -172,13 +167,15 @@ class GibbsSampler:
 
 
     def update_loglike(self, iteration):
-        ########################################################################################
         """
         Updates loglike of the data, omitting the constant additive term
         with Gamma functions of hyperparameters
         """
         # todo: implement log-like
-        self.loglike[iteration] = np.sum(np.log(self.theta@self.phi)*self.docs_words)
+        # Log of joint probability of the observations and the latents, logp({x},{z},{\phi},{\theta})
+        self.loglike[iteration] = (self.A_dk+self.alpha-1).ravel().dot(np.log(self.theta).ravel()) \
+            + (self.B_kw+self.beta-1).ravel().dot(np.log(self.phi).ravel())
+        # Copied over from the stdgibbs_logpred.m MATLAB file.
         self.loglike_test[iteration] = np.sum(np.log(self.theta@self.phi)*self.docs_words_test)
         
     def get_loglike(self):
@@ -241,36 +238,23 @@ class GibbsSamplerCollapsed(GibbsSampler):
         each new z_id updates these counters
         """
         # todo: sample a topic for each (doc, word) and update A_dk, B_kw correspondingly
-        # Hint: you can update A_dk, B_kw after each sampling instead of re-computing the whole matrix
         for d in range(self.n_docs):
             for w in range(self.n_words):
                 B_k = self.B_kw.sum(axis=1)
                 for i, topic in enumerate(self.doc_word_samples[d, w]):
+                    # Conditioning on the current word, so remover the topic assignment.
                     self.A_dk[d, topic] -= 1; self.B_kw[topic, w] -= 1; B_k[topic] -= 1
+                    # Calculate the sampling probability upto a factor.
                     sampling_weights = (self.A_dk[d, :]+self.alpha) \
                         * (self.B_kw[:, w]+self.beta) / (B_k + self.n_words*self.beta)
+                    # Calculate the sampling probabilities.
                     sampling_probs = sampling_weights / sampling_weights.sum()
+                    # Sample a random topic based on the sampling distribution above.
                     topic = self.rand_gen.choice(self.topics_space, p=sampling_probs)
+                    # Book keeping.
                     self.doc_word_samples[d, w][i] = topic
+                    # Update the counters.
                     self.A_dk[d, topic] += 1; self.B_kw[topic, w] += 1; B_k[topic] += 1
-                # B_k = self.B_kw_test.sum(axis=1)
-                # for i, topic in enumerate(self.doc_word_samples_test[d, w]):
-                #     self.A_dk_test[d, topic] -= 1; self.B_kw_test[topic, w] -= 1; B_k[topic] -= 1
-                #     sampling_weights = (self.A_dk_test[d, :]+self.alpha) \
-                #         * (self.B_kw_test[:, w]+self.beta) / (B_k + self.n_words*self.beta)
-                #     sampling_probs = sampling_weights / sampling_weights.sum()
-                #     topic = self.rand_gen.choice(self.topics_space, p=sampling_probs)
-                #     self.doc_word_samples_test[d, w][i] = topic
-                #     self.A_dk_test[d, topic] += 1; self.B_kw_test[topic, w] += 1; B_k[topic] += 1
-                # B_k = self.B_kw.sum(axis=1)
-                # for i, topic in enumerate(self.doc_word_samples_test[d, w]):
-                #     self.A_dk_test[d, topic] -= 1; self.B_kw_test[topic, w] -= 1
-                #     sampling_weights = (self.A_dk[d, :]+self.alpha) \
-                #         * (self.B_kw[:, w]+self.beta) / (B_k + self.n_words*self.beta)
-                #     sampling_probs = sampling_weights / sampling_weights.sum()
-                #     topic = self.rand_gen.choice(self.topics_space, p=sampling_probs)
-                #     self.doc_word_samples_test[d, w][i] = topic
-                #     self.A_dk_test[d, topic] += 1; self.B_kw_test[topic, w] += 1
 
     def update_loglike(self, iteration):
         """
@@ -278,8 +262,7 @@ class GibbsSamplerCollapsed(GibbsSampler):
         with Gamma functions of hyperparameters
         """
         # todo: implement log-like
-        
-        # Log of joint probability of the observations and the latents, logp(w,z).
+        # Log of joint probability of the observations and the latents, logp({x},{z}).
         log_like = 0.0
         for d in range(self.n_docs):
             log_like += np.sum(gammaln(self.A_dk[d] + self.alpha))
@@ -288,8 +271,7 @@ class GibbsSamplerCollapsed(GibbsSampler):
             log_like += np.sum(gammaln(self.B_kw[k] + self.beta))
             log_like -= gammaln(np.sum(self.B_kw[k] + self.beta))
         self.loglike[iteration] = log_like
-        
-        # Copied over logpred from the MATLAB file.
+        # Copied over from the colgibbs_logpred.m MATLAB file.
         P_dk = self.alpha + self.A_dk
         ss = P_dk.sum(axis=1, keepdims=True)
         P_dk = P_dk / ss
@@ -352,16 +334,17 @@ def main():
 
     like_train, like_test = sampler.get_loglike()
 
-    fig, axs = plt.subplots(2, 1, figsize=(12, 8))
+    fig, axs = plt.subplots(2, 1, figsize=(12, 10))
     axs[0].plot(like_train, color='blue')
-    axs[0].set_ylabel('Log-likelihood')
-    axs[0].set_title('Train Subset of Toy Data')
+    axs[0].set_ylabel('Log-joint', size=22)
+    axs[0].set_title('Train Subset of Toy Data', size=22)
     axs[1].plot(like_test, color='green')
-    axs[1].set_ylabel('Log-likelihood')
-    axs[1].set_xlabel('Iteration')
-    axs[1].set_title('Test Subset of Toy Data')
+    axs[1].set_ylabel('Log-predictive', size=22)
+    axs[1].set_xlabel('Iteration', size=22)
+    axs[1].set_title('Test Subset of Toy Data', size=22)
     fig.tight_layout()
-    plt.show()
+    plt.savefig('assets/lda/std-gibbs-toy.png')
+    plt.close(fig)
 
     print('Running toyexample.data with the collapsed sampler')
 
@@ -385,16 +368,17 @@ def main():
 
     like_train, like_test = sampler_collapsed.get_loglike()
 
-    fig, axs = plt.subplots(2, 1, figsize=(12, 8))
+    fig, axs = plt.subplots(2, 1, figsize=(12, 10))
     axs[0].plot(like_train, color='blue')
-    axs[0].set_ylabel('Log-likelihood')
-    axs[0].set_title('Train Subset of Toy Data')
+    axs[0].set_ylabel('Log-joint', size=22)
+    axs[0].set_title('Train Subset of Toy Data', size=22)
     axs[1].plot(like_test, color='green')
-    axs[1].set_ylabel('Log-likelihood')
-    axs[1].set_xlabel('Iteration')
-    axs[1].set_title('Test Subset of Toy Data')
+    axs[1].set_ylabel('Log-predictive', size=22)
+    axs[1].set_xlabel('Iteration', size=22)
+    axs[1].set_title('Test Subset of Toy Data', size=22)
     fig.tight_layout()
-    plt.show()
+    plt.savefig('assets/lda/col-gibbs-toy.png')
+    plt.close(fig)
 
 
 if __name__ == '__main__':
