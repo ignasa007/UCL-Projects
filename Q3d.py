@@ -13,22 +13,17 @@ class EMForMultivariateBernoulli:
         Bernoulli distributions.
         :param X: dataset of shape (N, D), where N is the number of samples and D 
             is the dimension of the samples.
-        :param P: parameters of the components arranged as a matrix of shape (D, K),
+        :param P: parameters of the components arranged as a matrix of shape (K, D),
             where K is the number of components in the mixture.
         :param pi: mixture components' weights.
         :returns:
         :log_likelihood: log-likelihood of the dataset under the mixture.
         '''
-        N, D, K = *X.shape, pi.size
-        log_likelihood = 0
-        for n in range(N):
-            x_likelihood = 0
-            for k in range(K):
-                component_joint = pi[k]
-                for d in range(D):
-                    component_joint *= (P[k, d]**X[n, d] * (1-P[k, d])**(1-X[n, d]))
-                x_likelihood += component_joint
-            log_likelihood += np.log(x_likelihood+1e-8)
+        log_prob_x_in_component = np.log(pi) + X@np.log(P.T) + (1-X)@np.log(1-P.T)
+        prob_x_in_component = np.exp(log_prob_x_in_component)
+        prob_x = np.sum(prob_x_in_component, axis=1)
+        log_prob_x = np.log(prob_x)
+        log_likelihood = np.sum(log_prob_x)
         return log_likelihood
 
     def expectation(self, X, P, pi):
@@ -37,20 +32,16 @@ class EMForMultivariateBernoulli:
         corresponding to the observations x^{(n)}.
         :param X: dataset of shape (N, D), where N is the number of samples and D is the 
             dimension of the samples.
-        :param P: parameters of the components arranged as a matrix of shape (D, K), where K is 
+        :param P: parameters of the components arranged as a matrix of shape (K, D), where K is 
             the number of components in the mixture.
         :param pi: mixture components' weights.
         :returns:
         R: matrix of shape (N, K) with responsibilities of x^{(n)} towards the mixture components.  
         '''
-        N, D, K = *X.shape, pi.size
-        R = np.zeros(shape=(N, K))
-        for n in range(N):
-            for k in range(K):
-                R[n, k] = pi[k]
-                for d in range(D):
-                    R[n, k] *= (P[k, d]**X[n, d] * (1-P[k, d])**(1-X[n, d]))
-            R[n] /= np.sum(R[n])
+        log_R = np.log(pi) + X@np.log(P.T) + (1-X)@np.log(1-P.T)
+        log_R = log_R - log_R.max(axis=1, keepdims=True)
+        R = np.exp(log_R)
+        R = R / R.sum(axis=1, keepdims=True)
         return R
 
     def maximisation(self, X, R):
@@ -62,11 +53,11 @@ class EMForMultivariateBernoulli:
         :param R: matrix of shape (N, K) with responsibilities of x^{(n)} towards the 
             mixture components.
         :returns:
-        P: parameters of the components arranged as a matrix of shape (D, K), where K is 
+        P: parameters of the components arranged as a matrix of shape (K, D), where K is 
             the number of components in the mixture.
         pi: mixture components' weights.
         '''
-        P = np.divide(R.T @ X, np.clip(R.sum(axis=0), 1e-8, None).reshape(-1, 1))
+        P = np.divide(R.T @ X, np.clip(R.T.sum(axis=1, keepdims=True), 1e-8, None))
         pi = np.mean(R, axis=0)
         return P, pi
 
@@ -80,7 +71,7 @@ class EMForMultivariateBernoulli:
         :param n_iterations: maximum number of iterations to run the algorithm for.
         :param eps: threshold below which if the improvement in log-l falls, we stop.
         :returns:
-        P: parameters of the components arranged as a matrix of shape (D, K), where K is 
+        P: parameters of the components arranged as a matrix of shape (K, D), where K is 
             the number of components in the mixture.
         pi: mixture components' weights.
         R: matrix of shape (N, K) with responsibilities of x^{(n)} towards the mixture components.
@@ -137,12 +128,12 @@ if __name__ == '__main__':
     # Plot the log-likelihoods from each run to compare across different values of k
     fig, axs = plt.subplots(1, 1, figsize=(4.5, 4))
     for i, (K, log_ls) in enumerate(zip(Ks, all_log_likelihoods)):
-        axs.plot(log_ls, marker='o', color=f'C{i}', label=f'K = {K}')
+        axs.plot(range(1, len(log_ls)), log_ls[1:], marker='o', markersize=4, color=f'C{i}', label=f'K = {K}')
+    max_iterations = max((len(log_ls) for log_ls in all_log_likelihoods))
+    xticks = range(1, 1+max_iterations//2*2, 2)
+    axs.set_xticks(ticks=xticks, labels=xticks)
     axs.set_xlabel('Iteration Number')
     axs.set_ylabel('Log-likelihood')
-    max_iterations = max((len(log_ls) for log_ls in all_log_likelihoods))
-    xticks = range(0, 1+max_iterations//2*2, 2)
-    axs.set_xticks(ticks=xticks, labels=xticks)
     axs.grid()
     axs.legend()
     fig.tight_layout()
