@@ -37,7 +37,7 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
     # Create colorbar
     cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom", font='serif', size=12)
 
     # Show all ticks and label them with the respective list entries.
     ax.set_xticks(np.arange(data.shape[1]), labels=col_labels)
@@ -48,8 +48,8 @@ def heatmap(data, row_labels, col_labels, ax=None,
                    labeltop=True, labelbottom=False)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
-             rotation_mode="anchor")
+    # plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
+    #          rotation_mode="anchor")
 
     # Turn spines off and create white grid.
     ax.spines[:].set_visible(False)
