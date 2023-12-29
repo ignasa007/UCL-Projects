@@ -36,7 +36,8 @@ def heatmap(data, row_labels, col_labels, ax=None,
     im = ax.imshow(data, **kwargs)
 
     # Create colorbar
-    cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+    im_ratio = data.shape[1]/data.shape[0]
+    cbar = ax.figure.colorbar(im, fraction=0.047*im_ratio, ax=ax, **cbar_kw)
     cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom", font='serif', size=12)
 
     # Show all ticks and label them with the respective list entries.
